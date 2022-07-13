@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+    <style type="text/css" media="all">
+      *{
+        padding: 0;
+        margin: 0;
+        box-sizing: border-box;
+      }
+      
+      .wrapper {
+        position: relative;
+        width: 100vw;
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        background: #333;
+      }
+      
+      .wrapper h1 {
+        font-size: 4rem;
+        font-weight: 700;
+        font-family: Monospace;
+        padding: 20px;
+        color: #fff;
+      }
+      
+      #canvas {
+        position: relative;
+        height: 900px;
+        aspect-ratio: 1/1;
+        background-color: #000;
+        box-shadow: 0 0 8px #888;
+      }
+      
+      .controls {
+        display: flex;
+        flex-direction: column;
+        position: relative;
+        width: 100%;
+      }
+      
+      .technical,.basic-control,.misc-control {
+        display: flex;
+        justify-content: space-around;
+        align-items: center;
+        margin: 20px;
+        color: #fff;
+        font-size: 20px;
+        font-weight: 700;
+      }
+      
+      #frame::before {
+        content: "SLIDER FPS:"
+      }
+      
+      #currentFps::before {
+        content: "FPS: "
+      }
+      
+      
+      #currentFps,#frame,.misc-control label{
+        position: relative;
+        display: block;
+        text-align: center;
+        font-size: 2rem;
+        color: #999;
+        font-weight: 400;
+      }
+
+      #frame {
+        color: #aabbcc;
+      }
+      
+      .basic-control {
+        padding: 40px;
+      }
+      
+      .basic-control a {
+        text-decoration: none;
+        color: white;
+        padding: 20px;
+        background: #666;
+        flex: 1;
+        text-align: center;
+        margin: 20px;
+        border-radius: 10px;
+        font-size: 2rem;
+        font-family: Monospace;
+      }
+      
+      .misc-control {
+        justify-content: flex-start;
+        align-items: centert;
+        flex-direction: row;
+        margin-left: 10px;
+      }
+      
+      .misc-control label {
+        font-family: Monospace;
+        color: #fff;
+        margin-left: 80px;
+      }
+      
+      #random,#grid {
+        width: 1.5rem;
+        height: 1.5rem;
+        margin-left: 10px;
+      }
+      
+      .range {
+        width: 400px;
+        height: 20px;
+        -webkit-appearance: none;
+        background: #111;
+        outline: none;
+        border-radius: 15px;
+        overflow: hidden;
+        box-shadow: inset 0 0 5px rgba(0, 0, 0, 1);
+      }
+      
+      .range::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        width: 15px;
+        height: 15px;
+        border-radius: 50%;
+        background:#888;
+        cursor: pointer;
+        border: 4px solid #aabbc9;
+        box-shadow: -407px 0 0 400px #aabbc9;
+      }
+
+    </style>
+    <title>Conway Game Of Life</title>
+  </head>
+  <body>
+    
+    <div class="wrapper">
+      <h1>Conway's Game Of Life</h1>
+      <canvas id="canvas"></canvas>
+      <div class="controls">
+        <div class="technical">
+          <input class="range" type="range" value="30" min="1" max="200" onChange="rangeSlide(this.value)" onmousemove="rangeSlide(this.value)"></input>
+          <span id="frame">30</span>
+          <span id="currentFps">0</span>
+        </div>
+        <div class="basic-control">
+          <a class="start" href="#">Start</a>
+          <a class="stop" href="#">Stop</a>
+          <a class="clear" href="#">Clear</a>
+        </div>
+        <div class="misc-control">
+          <label for="random">Randomise :</label>
+          <input type="checkbox" checked id="random" />
+          <label for="grid">Grid :</label>
+          <input type="checkbox" id="grid" />
+        </div>
+      </div>
+    </div>
+    
+    <script type="text/javascript" charset="utf-8">
+      let canvas = document.querySelector("#canvas")
+      let frame = document.querySelector("#currentFps")
+      let ctx = canvas.getContext("2d")
+      
+      let pause = true 
+      let random = true 
+      let grid = false
+      
+      canvas.width = canvas.clientWidth
+      canvas.height = canvas.clientHeight
+      
+      
+      document.querySelector(".stop").addEventListener('click',e=>{
+        pause = true
+      })
+      document.querySelector(".start").addEventListener('click',e=>{
+        pause = false
+        draw(oldArray)
+      })
+      document.querySelector(".clear").addEventListener('click',e=>{
+        handleClear(ctx)
+      })
+      document.querySelector("#random").addEventListener('click',e=>{
+        handleCheck(document.querySelector("#random").checked)
+      })
+      document.querySelector("#grid").addEventListener('click',e=>{
+        handleGrid(document.querySelector("#grid").checked)
+      })
+      
+      
+      
+      let handleGrid = (state) =>{
+        if(state){
+          drawGrids(canvas,resolution) 
+          grid = true
+        }
+        else {
+          clearCanvas()
+          grid = false 
+          draw(oldArray)
+        }
+
+      }
+      
+      let handleCheck = (state) =>{
+        if(state){
+          random = true 
+          oldArray = fillRandom(oldArray)
+        }
+        else {
+          random = false 
+    //      oldArray = create2DArray(rows,cols)
+        }
+      }
+      
+      let handleClear = (ctx) =>{
+        pause = true 
+        oldArray = create2DArray(rows,cols)
+        newArray = create2DArray(rows,cols)
+        if(random) oldArray = fillRandom(oldArray)
+        clearCanvas()
+        if(grid) drawGrids(canvas,resolution)
+      }
+      
+      let clearCanvas = () =>{
+        ctx.clearRect(0,0,canvas.width,canvas.height)
+      }
+      
+      
+      let create2DArray = (rows,cols) =>{
+        let ret = []
+        for(let i=0;i<cols;i++){
+          for(let j=0;j<rows;j++){
+            ret[i] = new Array(rows).fill(0)
+          }
+        }
+        return ret
+      }
+      
+      let fillRandom = (array,range) => {
+        return array.map(e=>{
+          return e.map(j=>{
+            return Math.floor(Math.random()*2)
+          })
+        })
+      }
+      
+      let isAlive = (array,x,y) =>{
+        let left = x-1 >= 0 ? x-1 : 0
+        let right = x + 1 <= array[0].length - 1 ? x +1 : array[0].length - 1
+        let top = y + 1 <= array.length - 1 ? y +1 : array.length - 1
+        let bottom = y - 1 >= 0 ? y-1 : 0 
+        
+
+        
+        let neighbours = [] 
+        let currentState = 0
+        
+        for(let i=bottom; i<=top; i++){
+          for(let j=left; j<=right; j++){
+            if(j !== x || i !== y){
+              neighbours = [...neighbours,array[i][j]]
+            } else {
+              currentState = array[i][j]
+            }
+          }
+        }
+        
+        neighbours = neighbours.filter(e=> e!== undefined)
+        
+        let alives = neighbours.filter(e=> e === 1)
+        
+        if(currentState === 1){
+          if(alives.length < 2 || alives.length > 3) return false 
+          else return true
+        } else {
+          if(alives.length === 3) return true
+        }
+        return false
+      }
+      
+      let rangeSlide = (value) =>{
+        document.getElementById('frame').innerText = value;
+        fps = value
+      }
+      
+      let resolution = 15 // Width of square 
+      let rows = canvas.clientWidth / resolution
+      let cols = canvas.clientHeight / resolution
+        
+      let oldArray = create2DArray(rows,cols)
+      let newArray = create2DArray(rows,cols)
+       
+      oldArray = fillRandom(oldArray) 
+      
+      let fps = 30
+      let frameInterval = 1000/fps 
+      let end = performance.now()
+      let start = performance.now()
+
+      
+      
+      let draw = (arr) =>{
+        
+        
+        arr.forEach((i,y)=>{
+          i.forEach((j,x)=>{
+            let xCoord = x*resolution 
+            let yCoord = y*resolution 
+            
+            
+            ctx.beginPath()
+            if(j === 1){
+              ctx.fillStyle = "white"
+            } else {
+              ctx.fillStyle = "black"
+            }
+            ctx.rect(xCoord,yCoord,resolution,resolution)
+            ctx.fill()
+            
+            newArray[y][x] = isAlive(oldArray,x,y) ? 1 : 0
+          })
+        })
+        
+        oldArray = newArray 
+        newArray = create2DArray(rows,cols)
+        end = performance.now()
+        start = performance.now()
+        if(grid) drawGrids(canvas,resolution)
+        if(pause) return false
+        let clearId = setTimeout(()=>{
+          window.requestAnimationFrame(()=>{
+            draw(oldArray)
+          })
+          frameInterval = 1000/fps
+          currentFrameRate = calcFrameRate()
+          clearTimeout(clearId);
+        },frameInterval)
+      }
+      
+      let calcFrameRate = () =>{
+        end = performance.now()
+        let elapsed = end - start 
+        let currentFrameRate = Math.round((frameInterval*fps)/(elapsed))
+        let id = setTimeout(()=>{
+          frame.innerText = currentFrameRate 
+          clearTimeout(id)
+        },1000)
+        start = performance.now()
+        return currentFrameRate
+      }
+      
+      draw(oldArray)
+      
+      
+      
+      let getMousePos = (canvasDom, mouseEvent)  => {
+				var rect = canvasDom.getBoundingClientRect();
+				return {
+					x: mouseEvent.clientX - rect.left,
+					y: mouseEvent.clientY - rect.top
+				};
+			}
+			
+			
+			let getTouchPos = (canvasDom, touchEvent)=>{
+				var rect = canvasDom.getBoundingClientRect();
+				return {
+					x: touchEvent.touches[0].clientX - rect.left,
+					y: touchEvent.touches[0].clientY - rect.top
+				};
+			}
+			
+			let drawGrids = (canvas,width) =>{
+			  let ctx = canvas.getContext("2d")
+			  let right = canvas.clientWidth
+			  let bottom = canvas.clientHeight
+			  ctx.lineWidth = 3
+			  ctx.strokeStyle = "#333"
+			  
+			  for(let i=0;i<=canvas.clientWidth;i+=width){
+			    ctx.beginPath()
+			    ctx.moveTo(i,0) 
+			    ctx.lineTo(i,bottom)
+			    ctx.stroke()
+			  }
+			  for(let i=0;i<=canvas.clientHeight;i+=width){
+			    ctx.beginPath()
+			    ctx.moveTo(0,i) 
+			    ctx.lineTo(right,i)
+			    ctx.stroke()
+			  }
+			    
+			}
+			
+			canvas.addEventListener("touchstart",e=>{
+			  let mousePos = getTouchPos(canvas, e);
+			  let xIndex = Math.floor(mousePos.x/resolution)
+			  let yIndex = Math.floor(mousePos.y/resolution)
+			  ctx.beginPath()
+			  ctx.rect(xIndex*resolution,yIndex*resolution ,resolution, resolution)
+			  ctx.fillStyle = "white"
+			  ctx.fill()
+			  oldArray[yIndex][xIndex] = 1
+			})
+			
+			canvas.addEventListener("touchmove",e=>{
+			  let mousePos = getTouchPos(canvas, e);
+			  let xIndex = Math.floor(mousePos.x/resolution)
+			  let yIndex = Math.floor(mousePos.y/resolution)
+			  ctx.beginPath()
+			  ctx.rect(xIndex*resolution,yIndex*resolution ,resolution, resolution)
+			  ctx.fillStyle = "white"
+			  ctx.fill()
+			  oldArray[yIndex][xIndex] = 1
+			})
+			
+			canvas.addEventListener("touchend",e=>{
+			  let mousePos = getTouchPos(canvas, e);
+			  let xIndex = Math.floor(mousePos.x/resolution)
+			  let yIndex = Math.floor(mousePos.y/resolution)
+			  ctx.beginPath()
+			  ctx.rect(xIndex*resolution,yIndex*resolution ,resolution, resolution)
+			  ctx.fillStyle = "white"
+			  ctx.fill()
+			  oldArray[yIndex][xIndex] = 1
+			})
+			
+			document.body.addEventListener("touchstart",e=>{
+			  if(e.target == canvas) e.preventDefault()
+			},{passive:false})
+			document.body.addEventListener("touchmove",e=>{
+			  if(e.target == canvas) e.preventDefault()
+			}, {passive:false})
+			document.body.addEventListener("touchend",e=>{
+			  if(e.target == canvas) e.preventDefault()
+			},{passive:false})
+
+    </script>
+  </body>
+</html>
