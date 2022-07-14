@@ -170,8 +170,8 @@
       let random = true 
       let grid = false
       
-      canvas.width = canvas.clientWidth
-      canvas.height = canvas.clientHeight
+      canvas.width = canvas.getBoundingClientRect().width
+      canvas.height = canvas.getBoundingClientRect().height
       
       
       document.querySelector(".stop").addEventListener('click',e=>{
@@ -190,6 +190,9 @@
       document.querySelector("#grid").addEventListener('click',e=>{
         handleGrid(document.querySelector("#grid").checked)
       })
+
+
+      window.onload= () => draw(oldArray)
       
       
       
@@ -213,7 +216,6 @@
         }
         else {
           random = false 
-    //      oldArray = create2DArray(rows,cols)
         }
       }
       
@@ -234,8 +236,9 @@
       let create2DArray = (rows,cols) =>{
         let ret = []
         for(let i=0;i<cols;i++){
+          ret[i] = []
           for(let j=0;j<rows;j++){
-            ret[i] = new Array(rows).fill(0)
+            ret[i][j] = 0
           }
         }
         return ret
@@ -354,8 +357,14 @@
         return currentFrameRate
       }
       
-      draw(oldArray)
       
+      let isBound = (pos,boundaries) =>{
+        let {x,y} = pos
+        let {left, right, top, bottom } = boundaries
+        if(x <= left || x >= right) return false
+        if(y <= top - boundaries.y || y >= bottom - boundaries.y) return false      
+        return true
+      }
       
       
       let getMousePos = (canvasDom, mouseEvent)  => {
@@ -369,10 +378,14 @@
 			
 			let getTouchPos = (canvasDom, touchEvent)=>{
 				var rect = canvasDom.getBoundingClientRect();
-				return {
-					x: touchEvent.touches[0].clientX - rect.left,
+        if(!touchEvent.touches.length) return null
+        let pos = {
+          x: touchEvent.touches[0].clientX - rect.left,
 					y: touchEvent.touches[0].clientY - rect.top
-				};
+        }
+
+        if(!isBound(pos,rect)) return null
+				return pos
 			}
 			
 			let drawGrids = (canvas,width) =>{
@@ -398,37 +411,43 @@
 			}
 			
 			canvas.addEventListener("touchstart",e=>{
-			  let mousePos = getTouchPos(canvas, e);
-			  let xIndex = Math.floor(mousePos.x/resolution)
-			  let yIndex = Math.floor(mousePos.y/resolution)
-			  ctx.beginPath()
-			  ctx.rect(xIndex*resolution,yIndex*resolution ,resolution, resolution)
-			  ctx.fillStyle = "white"
-			  ctx.fill()
-			  oldArray[yIndex][xIndex] = 1
+			  let mousePos = getTouchPos(canvas, e)
+        drawCell(mousePos)
+			})
+
+      canvas.addEventListener("click",e=>{
+			  let mousePos = getMousePos(canvas, e)
+        drawCell(mousePos)
 			})
 			
 			canvas.addEventListener("touchmove",e=>{
-			  let mousePos = getTouchPos(canvas, e);
-			  let xIndex = Math.floor(mousePos.x/resolution)
-			  let yIndex = Math.floor(mousePos.y/resolution)
-			  ctx.beginPath()
-			  ctx.rect(xIndex*resolution,yIndex*resolution ,resolution, resolution)
-			  ctx.fillStyle = "white"
-			  ctx.fill()
-			  oldArray[yIndex][xIndex] = 1
+			  let mousePos = getTouchPos(canvas, e)
+        drawCell(mousePos)
 			})
+
 			
 			canvas.addEventListener("touchend",e=>{
-			  let mousePos = getTouchPos(canvas, e);
-			  let xIndex = Math.floor(mousePos.x/resolution)
-			  let yIndex = Math.floor(mousePos.y/resolution)
-			  ctx.beginPath()
-			  ctx.rect(xIndex*resolution,yIndex*resolution ,resolution, resolution)
-			  ctx.fillStyle = "white"
-			  ctx.fill()
-			  oldArray[yIndex][xIndex] = 1
+			  let mousePos = getTouchPos(canvas, e)
+        drawCell(mousePos)
 			})
+
+      let drawCell = (pos) =>{
+        if(!pos) return undefined
+			  let xIndex = Math.floor(pos.x/resolution)
+			  let yIndex = Math.floor(pos.y/resolution)
+        if(oldArray[yIndex][xIndex] === undefined) return false
+        let state = oldArray[yIndex][xIndex]   
+
+        ctx.beginPath()
+			  ctx.rect(xIndex*resolution,yIndex*resolution ,resolution, resolution)
+			  ctx.fillStyle = state ? 'black' : 'white'
+			  ctx.fill()
+			  
+			  if(oldArray[yIndex][xIndex] === 0) oldArray[yIndex][xIndex]= 1
+        else oldArray[yIndex][xIndex]= 0
+
+        
+      }
 			
 			document.body.addEventListener("touchstart",e=>{
 			  if(e.target == canvas) e.preventDefault()
